@@ -53,3 +53,6 @@ Rule-based detection catches common tricks, but a carefully written phishing ema
  
 Built by [Hadis Pazhand](https://www.linkedin.com/in/hadis-pazhand-5264311b1/), Bachelor of Cybersecurity student at La Trobe University.
  
+## Disclaimer
+
+This is a student learning project, not a professional security tool. It can miss phishing emails and can flag safe ones. Don't rely on it to decide whether an email is safe, and don't paste in emails containing personal or sensitive information.
