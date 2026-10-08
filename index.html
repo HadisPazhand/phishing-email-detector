@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Phishing Email Detector · Hadis Pazhand</title>
+    <meta
+      name="description"
+      content="Paste an email and see which phishing red flags it contains. A web version of a Java project by Hadis Pazhand."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #fbf6f9;
+        --sheet: #ffffff;
+        --ink: #2a1630;
+        --muted: #76627c;
+        --rule: #e8dce5;
+        --pink: #e0377f;
+        --mark: rgba(255, 95, 162, 0.32);
+        --mark-domain: rgba(255, 95, 162, 0.55);
+        --high: #c21649;
+        --medium: #a86100;
+        --low: #23775a;
+        --focus: #e0377f;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --paper: #1a0f1e;
+          --sheet: #251628;
+          --ink: #f5e9f1;
+          --muted: #b9a3b8;
+          --rule: #3c2840;
+          --pink: #ff6fae;
+          --mark: rgba(255, 95, 162, 0.3);
+          --mark-domain: rgba(255, 95, 162, 0.55);
+          --high: #ff5c86;
+          --medium: #ffb347;
+          --low: #5fd3a4;
+          --focus: #ff6fae;
+        }
+      }
+      :root[data-theme="dark"] {
+        --paper: #1a0f1e;
+        --sheet: #251628;
+        --ink: #f5e9f1;
+        --muted: #b9a3b8;
+        --rule: #3c2840;
+        --pink: #ff6fae;
+        --mark: rgba(255, 95, 162, 0.3);
+        --mark-domain: rgba(255, 95, 162, 0.55);
+        --high: #ff5c86;
+        --medium: #ffb347;
+        --low: #5fd3a4;
+        --focus: #ff6fae;
+      }
+      html {
+        scroll-padding-top: env(safe-area-inset-top, 0px);
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          "Bricolage Grotesque",
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 1.0625rem;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+      header h1 {
+        font-size: clamp(2.2rem, 7vw, 3.4rem);
+        font-weight: 800;
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+        margin: 0 0 0.9rem;
+      }
+      header h1 .hl {
+        background: linear-gradient(
+          transparent 58%,
+          var(--mark-domain) 58%,
+          var(--mark-domain) 92%,
+          transparent 92%
+        );
+        padding: 0 0.08em;
+      }
+      header p {
+        color: var(--muted);
+        margin: 0 0 2.2rem;
+        max-width: 34rem;
+      }
+
+      /* the email being inspected */
+      .email {
+        background: var(--sheet);
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .field {
+        display: grid;
+        grid-template-columns: 5.2rem 1fr;
+        align-items: start;
+        border-bottom: 1px solid var(--rule);
+      }
+      .field:last-child {
+        border-bottom: 0;
+      }
+      .field label {
+        color: var(--muted);
+        font-size: 0.95rem;
+        padding: 0.95rem 0 0.95rem 1.1rem;
+      }
+      .field input,
+      .field textarea {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        padding: 0.9rem 1.1rem 0.9rem 0.4rem;
+        resize: vertical;
+      }
+      .field textarea {
+        min-height: 11rem;
+      }
+      .field input:focus,
+      .field textarea:focus {
+        outline: none;
+      }
+      .field:focus-within {
+        background: color-mix(in srgb, var(--pink) 5%, transparent);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.1rem;
+        align-items: center;
+        margin: 1.1rem 0 0;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+      }
+      .scan {
+        background: var(--pink);
+        color: #fff;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.7rem 1.5rem;
+        font-weight: 600;
+      }
+      .scan:hover {
+        filter: brightness(1.07);
+      }
+      .link {
+        background: none;
+        border: 0;
+        padding: 0.2rem 0;
+        color: var(--muted);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: var(--rule);
+      }
+      .link:hover {
+        color: var(--ink);
+        text-decoration-color: var(--pink);
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .error {
+        color: var(--high);
+        margin: 0.8rem 0 0;
+        min-height: 1.4em;
+        font-size: 0.95rem;
+      }
+
+      /* results */
+      #result {
+        margin-top: 2.6rem;
+      }
+      #result[hidden] {
+        display: none;
+      }
+      .verdict {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.2rem 1rem;
+        border-top: 3px solid var(--risk, var(--ink));
+        padding-top: 1rem;
+      }
+      .verdict .level {
+        font-size: clamp(2.6rem, 10vw, 4.2rem);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        color: var(--risk, var(--ink));
+      }
+      .verdict .sub {
+        color: var(--muted);
+      }
+      .rid {
+        font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.9rem;
+      }
+      .advice {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin: 0.9rem 0 1.8rem;
+        max-width: 34rem;
+      }
+      h2 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 1.6rem 0 0.6rem;
+      }
+      .preview {
+        background: var(--sheet);
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        padding: 1rem 1.1rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .preview .subj {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.6rem;
+      }
+      mark {
+        background: var(--mark);
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 0.12em;
+      }
+      mark.domain {
+        background: var(--mark-domain);
+        font-weight: 600;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .chips li {
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 0.2rem 0.75rem;
+        font-size: 0.95rem;
+        background: var(--sheet);
+      }
+      .chips.domains li {
+        border-color: var(--pink);
+      }
+      .flags {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+      .flags li {
+        margin: 0.2rem 0;
+        overflow-wrap: anywhere;
+      }
+      .none {
+        color: var(--muted);
+        margin: 0;
+      }
+      .how {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin-top: 2rem;
+        max-width: 36rem;
+      }
+      footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      footer a {
+        color: var(--ink);
+        text-decoration-color: var(--pink);
+        text-underline-offset: 3px;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        #result.show {
+          animation: rise 0.35s ease-out;
+        }
+        @keyframes rise {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+      }
+      @media (max-width: 480px) {
+        main {
+          padding-top: 2rem;
+        }
+        .field {
+          grid-template-columns: 1fr;
+        }
+        .field label {
+          padding: 0.8rem 1.1rem 0;
+        }
+        .field input,
+        .field textarea {
+          padding: 0.3rem 1.1rem 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Is this email <span class="hl">phishing?</span></h1>
+        <p>
+          Paste in an email's subject and body. The detector looks for phishing
+          keywords, known bad domains, fake brand websites like paypa1.com, and
+          risky links, then rates the risk.
+        </p>
+      </header>
+
+      <form class="email" id="emailForm" novalidate>
+        <div class="field">
+          <label for="subject">Subject</label>
+          <input
+            id="subject"
+            type="text"
+            autocomplete="off"
+            placeholder="e.g. Your account has been suspended"
+          />
+        </div>
+        <div class="field">
+          <label for="body">Body</label>
+          <textarea
+            id="body"
+            placeholder="Paste the email text here"
+          ></textarea>
+        </div>
+      </form>
+
+      <div class="actions">
+        <button class="scan" id="scanBtn" type="button">Scan email</button>
+        <button class="link" type="button" data-sample="phish">
+          Try a phishing example
+        </button>
+        <button class="link" type="button" data-sample="safe">
+          Try a normal email
+        </button>
+      </div>
+      <p class="error" id="error" role="alert"></p>
+
+      <section id="result" hidden aria-live="polite">
+        <div class="verdict">
+          <span class="level" id="level"></span>
+          <span class="sub"
+            ><span id="count"></span> · Report <span class="rid" id="rid"></span
+          ></span>
+        </div>
+        <p class="advice" id="advice"></p>
+
+        <h2>Where the red flags are</h2>
+        <div class="preview" id="preview"></div>
+
+        <h2>Suspicious keywords</h2>
+        <div id="keywords"></div>
+
+        <h2>Known suspicious domains</h2>
+        <div id="domains"></div>
+
+        <h2>Lookalike domains</h2>
+        <div id="lookalikes"></div>
+
+        <h2>Risky links</h2>
+        <div id="links"></div>
+
+        <p class="how">
+          Risk is based on the total number of red flags: 5 or more is high, 2
+          to 4 is medium, and 0 or 1 is low. Keyword matching catches common
+          tricks, but a carefully written phishing email can still get through,
+          so always check the sender and hover over links before clicking.
+        </p>
+      </section>
+
+      <footer>
+        Built by
+        <a
+          href="https://www.linkedin.com/in/hadis-pazhand-5264311b1/"
+          target="_blank"
+          rel="noopener"
+          >Hadis Pazhand</a
+        >. Originally written in Java; this web version uses the same detection
+        rules so you can try it in your browser.
+      </footer>
+    </main>
+
+    <script>
+      // ThreatDatabase: same role as the txt files in the Java version's Data folder
+      const clean = (list) =>
+        list.map((x) => x.trim().toLowerCase()).filter((x) => x.length > 0);
+      const KEYWORDS = clean([
+        "urgent",
+        "immediately",
+        "act now",
+        "final notice",
+        "limited time",
+        "verify your account",
+        "confirm your identity",
+        "account suspended",
+        "suspended",
+        "account locked",
+        "unusual activity",
+        "security alert",
+        "password",
+        "click here",
+        "click the link",
+        "login",
+        "update your payment",
+        "payment failed",
+        "bank account",
+        "wire transfer",
+        "gift card",
+        "refund",
+        "invoice",
+        "you have won",
+        "winner",
+        "prize",
+        "free",
+      ]);
+      const SUSPICIOUS_DOMAINS = clean([
+        "amaz0n-security.com",
+        "micros0ft-support.com",
+        "apple-id-verify.com",
+        "account-verify.com",
+        "secure-login.net",
+        "netflix-billing.net",
+        "auspost-delivery.info",
+        "mygov-refund.com",
+        "commbank-alert.com",
+      ]);
+      const BRANDS = [
+        // brand name, official domain (Brands.txt)
+        ["paypal", "paypal.com"],
+        ["microsoft", "microsoft.com"],
+        ["apple", "apple.com"],
+        ["amazon", "amazon.com"],
+        ["netflix", "netflix.com"],
+        ["google", "google.com"],
+        ["commbank", "commbank.com.au"],
+        ["westpac", "westpac.com.au"],
+        ["auspost", "auspost.com.au"],
+        ["mygov", "my.gov.au"],
+      ];
+      const SHORTENERS = clean([
+        "bit.ly",
+        "tinyurl.com",
+        "t.co",
+        "goo.gl",
+        "is.gd",
+        "ow.ly",
+      ]);
+
+      const DOMAIN_RE = /\b[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}\b/g;
+      const URL_RE = /https?:\/\/[^\s]+/g;
+      const IP_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
+
+      // swaps look-alike characters back to letters, e.g. paypa1 -> paypal
+      function normalise(t) {
+        return t
+          .replace(/0/g, "o")
+          .replace(/1/g, "l")
+          .replace(/3/g, "e")
+          .replace(/4/g, "a")
+          .replace(/5/g, "s")
+          .replace(/7/g, "t")
+          .replace(/rn/g, "m")
+          .replace(/vv/g, "w");
+      }
+
+      // EmailScanner
+      function scanEmail(subject, body) {
+        const s = subject.toLowerCase();
+        const b = body.toLowerCase();
+        const matchedKeywords = KEYWORDS.filter(
+          (k) => s.includes(k) || b.includes(k),
+        );
+        const matchedDomains = SUSPICIOUS_DOMAINS.filter((d) => b.includes(d));
+
+        // lookalike domains
+        const lookalikeWarnings = [],
+          lookalikeHits = [],
+          seen = new Set();
+        for (const m of b.matchAll(DOMAIN_RE)) {
+          let domain = m[0].startsWith("www.") ? m[0].slice(4) : m[0];
+          if (seen.has(domain)) continue;
+          seen.add(domain);
+          const n = normalise(domain);
+          for (const [brand, official] of BRANDS) {
+            if (!n.includes(brand)) continue;
+            if (domain === official || domain.endsWith("." + official)) break;
+            lookalikeHits.push(domain);
+            lookalikeWarnings.push(
+              domain.includes(brand)
+                ? domain +
+                    " uses the name '" +
+                    brand +
+                    "' but is not " +
+                    official
+                : domain + " imitates " + official + " (swapped characters)",
+            );
+            break;
+          }
+        }
+
+        // risky links
+        const linkWarnings = [],
+          linkHits = [];
+        for (const m of b.matchAll(URL_RE)) {
+          const url = m[0];
+          let host = url
+            .slice(url.indexOf("://") + 3)
+            .split("/")[0]
+            .split(":")[0];
+          let flagged = false;
+          if (url.startsWith("http://")) {
+            linkWarnings.push("Not secure (http, not https): " + url);
+            flagged = true;
+          }
+          if (IP_RE.test(host)) {
+            linkWarnings.push(
+              "Uses an IP address instead of a website name: " + url,
+            );
+            flagged = true;
+          }
+          if (SHORTENERS.includes(host)) {
+            linkWarnings.push(
+              "Link shortener hides the real destination: " + url,
+            );
+            flagged = true;
+          }
+          if (flagged) linkHits.push(url);
+        }
+
+        const total =
+          matchedKeywords.length +
+          matchedDomains.length +
+          lookalikeWarnings.length +
+          linkWarnings.length;
+        let risk = "LOW";
+        if (total >= 5) risk = "HIGH";
+        else if (total >= 2) risk = "MEDIUM";
+        return {
+          matchedKeywords,
+          matchedDomains,
+          lookalikeWarnings,
+          lookalikeHits,
+          linkWarnings,
+          linkHits,
+          total,
+          risk,
+        };
+      }
+
+      // ReportGenerator
+      function reportId() {
+        return "RPT-" + (Math.floor(Math.random() * 90000) + 10000);
+      }
+      const ADVICE = {
+        HIGH: "Do not click any links. Report this email immediately.",
+        MEDIUM: "Be cautious. Verify the sender before taking any action.",
+        LOW: "Email appears safe, but always stay alert.",
+      };
+      const LABEL = {
+        HIGH: "High risk",
+        MEDIUM: "Medium risk",
+        LOW: "Low risk",
+      };
+
+      function escapeHtml(str) {
+        return str.replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+      function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+
+      // wraps every flagged term in <mark>, longest first so links and phrases win over single words
+      function highlight(text, keywords, strong) {
+        const terms = [
+          ...strong.map((t) => ({ t, strong: true })),
+          ...keywords.map((t) => ({ t, strong: false })),
+        ].sort((a, b) => b.t.length - a.t.length);
+        if (terms.length === 0) return escapeHtml(text);
+        const re = new RegExp(
+          terms.map((x) => escapeRegex(x.t)).join("|"),
+          "gi",
+        );
+        const strongSet = new Set(strong.map((t) => t.toLowerCase()));
+        let out = "",
+          last = 0,
+          m;
+        while ((m = re.exec(text)) !== null) {
+          out += escapeHtml(text.slice(last, m.index));
+          const cls = strongSet.has(m[0].toLowerCase())
+            ? ' class="domain"'
+            : "";
+          out += "<mark" + cls + ">" + escapeHtml(m[0]) + "</mark>";
+          last = m.index + m[0].length;
+          if (m[0].length === 0) re.lastIndex++;
+        }
+        return out + escapeHtml(text.slice(last));
+      }
+
+      function chipList(items, extraClass) {
+        if (items.length === 0) return '<p class="none">None found</p>';
+        return (
+          '<ul class="chips ' +
+          extraClass +
+          '">' +
+          items.map((i) => "<li>" + escapeHtml(i) + "</li>").join("") +
+          "</ul>"
+        );
+      }
+      function flagList(items) {
+        if (items.length === 0) return '<p class="none">None found</p>';
+        return (
+          '<ul class="flags">' +
+          items.map((i) => "<li>" + escapeHtml(i) + "</li>").join("") +
+          "</ul>"
+        );
+      }
+
+      const $ = (id) => document.getElementById(id);
+
+      function runScan() {
+        const subject = $("subject").value;
+        const body = $("body").value;
+        if (!subject.trim() && !body.trim()) {
+          $("error").textContent = "Add a subject or body to scan.";
+          $("result").hidden = true;
+          return;
+        }
+        $("error").textContent = "";
+        const r = scanEmail(subject, body);
+        const riskColor = {
+          HIGH: "var(--high)",
+          MEDIUM: "var(--medium)",
+          LOW: "var(--low)",
+        }[r.risk];
+        const result = $("result");
+        result.style.setProperty("--risk", riskColor);
+        $("level").textContent = LABEL[r.risk];
+        $("count").textContent =
+          r.total + (r.total === 1 ? " red flag" : " red flags");
+        $("rid").textContent = reportId();
+        $("advice").textContent = ADVICE[r.risk];
+
+        // subject only checks keywords; body checks everything, same as the Java version
+        const strong = [...r.linkHits, ...r.matchedDomains, ...r.lookalikeHits];
+        const subjHtml = subject.trim()
+          ? '<span class="subj">' +
+            highlight(subject, r.matchedKeywords, []) +
+            "</span>"
+          : "";
+        $("preview").innerHTML =
+          subjHtml + highlight(body, r.matchedKeywords, strong);
+        $("keywords").innerHTML = chipList(r.matchedKeywords, "");
+        $("domains").innerHTML = chipList(r.matchedDomains, "domains");
+        $("lookalikes").innerHTML = flagList(r.lookalikeWarnings);
+        $("links").innerHTML = flagList(r.linkWarnings);
+
+        result.hidden = false;
+        result.classList.remove("show");
+        void result.offsetWidth;
+        result.classList.add("show");
+        result.scrollIntoView({
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+          block: "start",
+        });
+      }
+
+      const SAMPLES = {
+        phish: {
+          subject: "URGENT: Your account has been suspended",
+          body: "Dear customer,\n\nWe detected unusual activity on your account and it has been suspended. To restore access, verify your account immediately at http://paypa1.com/restore\n\nIf the link doesn't work, use https://bit.ly/3xRestore or visit https://paypal-security.com/verify\n\nSecurity Team",
+        },
+        safe: {
+          subject: "Notes from Thursday's project meeting",
+          body: "Hi team,\n\nThanks for coming along on Thursday. The notes and updated timeline are in our shared folder: https://www.microsoft.com/en-au/microsoft-teams\n\nLet me know if I've missed anything before our next catch-up on the 15th.\n\nCheers,\nSam",
+        },
+      };
+
+      $("scanBtn").addEventListener("click", runScan);
+      document.querySelectorAll("[data-sample]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const s = SAMPLES[btn.dataset.sample];
+          $("subject").value = s.subject;
+          $("body").value = s.body;
+          runScan();
+        });
+      });
+      $("subject").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runScan();
+        }
+      });
+      $("body").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) runScan();
+      });
+    </script>
+  </body>
+</html>
